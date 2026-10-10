@@ -1,0 +1,353 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bâtiments achevés en Suisse 2000–2024</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --bd:#d9dce1; --fg:#1f2430; --mut:#6b7280; --acc:#d52b1e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { background:var(--acc); color:#fff; padding:12px 20px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  header h1 { margin:0; font-size:18px; }
+  header span { font-size:12px; opacity:.9; }
+  .layout { display:grid; grid-template-columns:290px 1fr; gap:16px; padding:16px; align-items:start; }
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;} }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+  .card h2 { margin:0 0 8px; font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--mut); }
+  .filters h3 { margin:10px 0 4px; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+  .filters h3 small a { color:var(--acc); cursor:pointer; margin-left:6px; font-weight:normal; }
+  .checks { display:flex; flex-wrap:wrap; gap:2px 10px; max-height:150px; overflow:auto; }
+  .checks label { white-space:nowrap; cursor:pointer; }
+  .checks.col { flex-direction:column; max-height:none; }
+  select,input[type=number],button { font:inherit; padding:4px 6px; border:1px solid var(--bd); border-radius:5px; background:#fff; }
+  button { cursor:pointer; } button:hover { background:#f0f0f0; }
+  .row { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin-bottom:8px; }
+  .row label { display:flex; gap:5px; align-items:center; }
+  .kpis { display:flex; gap:12px; flex-wrap:wrap; }
+  .kpi { flex:1; min-width:130px; background:var(--card); border:1px solid var(--bd); border-radius:8px; padding:8px 12px; }
+  .kpi b { display:block; font-size:20px; } .kpi span { color:var(--mut); font-size:12px; }
+  #chart { width:100%; overflow-x:auto; }
+  svg text { font:11px system-ui,sans-serif; fill:#444; }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:6px; font-size:12px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; }
+  .tablewrap { overflow:auto; max-height:460px; border:1px solid var(--bd); border-radius:6px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { padding:4px 8px; border-bottom:1px solid #eceef1; white-space:nowrap; }
+  th { position:sticky; top:0; background:#f0f1f4; text-align:left; cursor:pointer; user-select:none; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tr.total td { font-weight:600; background:#fafafa; position:sticky; bottom:0; }
+  .note { color:var(--mut); font-size:12px; margin-top:6px; }
+  .hint { color:var(--mut); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bâtiments achevés en Suisse, 2000–2024</h1>
+  <span>Sources : RegBL/GWR et StatBL (OFS) &middot; <span id="nrows"></span> lignes</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="card filters">
+      <h2>Filtres</h2>
+      <h3>Années</h3>
+      <div class="row"><select id="yFrom"></select> à <select id="yTo"></select></div>
+      <h3>Type de bâtiment <small><a data-all="t">tous</a><a data-none="t">aucun</a></small></h3>
+      <div class="checks col" id="f_t"></div>
+      <h3>Grande région <small><a data-all="r">toutes</a><a data-none="r">aucune</a></small></h3>
+      <div class="checks col" id="f_r"></div>
+      <h3>Canton <small><a data-all="c">tous</a><a data-none="c">aucun</a></small></h3>
+      <div class="checks" id="f_c"></div>
+      <p class="note">Les filtres s'appliquent au graphique, au tableau croisé et au tableau détaillé.</p>
+    </div>
+  </aside>
+
+  <main>
+    <div class="kpis" style="margin-bottom:16px" id="kpis"></div>
+
+    <div class="card">
+      <h2>Graphique et tableau croisé</h2>
+      <div class="row">
+        <label>Mesure <select id="cMeasure"></select></label>
+        <label>Agrégation <select id="cAgg">
+          <option value="sum">Somme</option><option value="avg">Moyenne</option>
+          <option value="min">Minimum</option><option value="max">Maximum</option></select></label>
+        <label>Axe X <select id="cX"></select></label>
+        <label>Séries <select id="cS"></select></label>
+        <label>Graphique <select id="cType">
+          <option value="line">Lignes</option><option value="bar">Barres groupées</option>
+          <option value="stack">Barres empilées</option></select></label>
+      </div>
+      <div class="row">
+        <label>Séries max. <input type="number" id="cTop" min="0" max="30" value="10" style="width:60px"> <span class="hint">(0 = toutes ; le reste est regroupé en « Autres »)</span></label>
+        <label><input type="checkbox" id="cSort"> Trier l'axe X par valeur</label>
+      </div>
+      <div id="chart"></div>
+      <div class="legend" id="legend"></div>
+      <h2 style="margin-top:14px">Tableau croisé <button id="pvCsv" style="float:right;text-transform:none">Exporter CSV</button></h2>
+      <div class="tablewrap"><table id="pivot"></table></div>
+      <p class="note" id="aggNote"></p>
+    </div>
+
+    <div class="card">
+      <h2>Tableau détaillé</h2>
+      <div class="row">
+        <strong>Regrouper par :</strong>
+        <span id="gDims" class="row" style="margin:0"></span>
+      </div>
+      <div class="row">
+        <strong>Colonnes :</strong>
+        <span id="gMeas" class="row" style="margin:0"></span>
+      </div>
+      <div class="row">
+        <label>Agrégation <select id="gAgg">
+          <option value="sum">Somme</option><option value="avg">Moyenne</option>
+          <option value="min">Minimum</option><option value="max">Maximum</option></select></label>
+        <button id="tbCsv">Exporter CSV</button>
+        <span class="hint">Cliquez sur un en-tête pour trier.</span>
+      </div>
+      <div class="tablewrap"><table id="detail"></table></div>
+      <p class="note" id="detNote"></p>
+    </div>
+  </main>
+</div>
+
+<script>
+const RAW = /*DATA*/;
+const FIELDS = ["y","c","t","n","ofs","sre","nsre","emp","pl","vol"];
+const ROWS = RAW.map(a => Object.fromEntries(FIELDS.map((k,i)=>[k,a[i]])));
+
+const REGION = {VD:"Région lémanique",VS:"Région lémanique",GE:"Région lémanique",
+  BE:"Espace Mittelland",FR:"Espace Mittelland",SO:"Espace Mittelland",NE:"Espace Mittelland",JU:"Espace Mittelland",
+  BS:"Suisse du Nord-Ouest",BL:"Suisse du Nord-Ouest",AG:"Suisse du Nord-Ouest",ZH:"Zurich",
+  GL:"Suisse orientale",SH:"Suisse orientale",AR:"Suisse orientale",AI:"Suisse orientale",SG:"Suisse orientale",GR:"Suisse orientale",TG:"Suisse orientale",
+  LU:"Suisse centrale",UR:"Suisse centrale",SZ:"Suisse centrale",OW:"Suisse centrale",NW:"Suisse centrale",ZG:"Suisse centrale",TI:"Tessin"};
+ROWS.forEach(r => { r.r = REGION[r.c]; const p = Math.floor((r.y-2000)/5)*5+2000; r.p = p+"–"+Math.min(p+4,2024); });
+
+const DIMS = {y:"Année", p:"Période (5 ans)", c:"Canton", r:"Grande région", t:"Type de bâtiment"};
+// base measures (agrégables) et mesures dérivées (calculées à partir des sommes)
+const BASE = {
+  n:"Bâtiments achevés (RegBL)", ofs:"Nouveaux bât. d'habitation (StatBL)", sre:"Surface SRE (m²)",
+  nsre:"Bâtiments avec SRE renseignée", emp:"Emprise au sol (m²)", pl:"Surface de plancher estimée (m²)", vol:"Volume (m³)"};
+const DERIVED = {
+  sre_b:{label:"SRE moyenne / bât. renseigné (m²)", f:s=>s.nsre? s.sre/s.nsre : null},
+  sre_p:{label:"Part de bâtiments avec SRE (%)", f:s=>s.n? 100*s.nsre/s.n : null},
+  pl_b:{label:"Plancher estimé moyen / bâtiment (m²)", f:s=>s.n? s.pl/s.n : null},
+  vol_b:{label:"Volume moyen / bâtiment (m³)", f:s=>s.n? s.vol/s.n : null},
+  ofs_gap:{label:"Écart RegBL vs StatBL (%)", f:s=>s.ofs? 100*(s.n-s.ofs)/s.ofs : null}
+};
+const MEAS = {...BASE, ...Object.fromEntries(Object.entries(DERIVED).map(([k,v])=>[k,v.label]))};
+const PALETTE = ["#d52b1e","#1f77b4","#2ca02c","#ff7f0e","#9467bd","#8c564b","#e377c2","#17becf","#bcbd22","#393b79","#7f7f7f","#637939","#aaa"];
+const fmt = v => v==null||isNaN(v) ? "" : Number(v).toLocaleString("fr-CH",{maximumFractionDigits:Math.abs(v)<100&&v%1?1:0});
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------- filtres
+const uniq = k => [...new Set(ROWS.map(r=>r[k]))];
+const years = uniq("y").sort((a,b)=>a-b);
+const filt = {
+  t:new Set(uniq("t")), r:new Set(uniq("r")), c:new Set(uniq("c"))
+};
+const order = {t:uniq("t"), r:uniq("r"), c:uniq("c")};
+$("nrows").textContent = ROWS.length.toLocaleString("fr-CH");
+for (const id of ["yFrom","yTo"]) $(id).innerHTML = years.map(y=>`<option>${y}</option>`).join("");
+$("yFrom").value = years[0]; $("yTo").value = years[years.length-1];
+
+for (const k of ["t","r","c"]) {
+  $("f_"+k).innerHTML = order[k].map(v=>`<label><input type="checkbox" data-f="${k}" value="${v}" checked> ${v}</label>`).join("");
+}
+document.addEventListener("change", e => {
+  const el = e.target;
+  if (el.dataset.f) { el.checked ? filt[el.dataset.f].add(el.value) : filt[el.dataset.f].delete(el.value); render(); }
+});
+document.querySelectorAll("[data-all],[data-none]").forEach(a => a.onclick = () => {
+  const k = a.dataset.all || a.dataset.none, on = !!a.dataset.all;
+  document.querySelectorAll(`input[data-f=${k}]`).forEach(i => { i.checked = on; });
+  filt[k] = on ? new Set(order[k]) : new Set(); render();
+});
+["yFrom","yTo"].forEach(id => $(id).onchange = render);
+
+function filtered() {
+  const a = +$("yFrom").value, b = +$("yTo").value;
+  return ROWS.filter(r => r.y>=Math.min(a,b) && r.y<=Math.max(a,b) && filt.t.has(r.t) && filt.r.has(r.r) && filt.c.has(r.c));
+}
+
+// ---------------------------------------------------------------- agrégation
+function newAcc() { const o={}; for (const k in BASE) o[k]={s:0,cnt:0,min:Infinity,max:-Infinity}; return o; }
+function addRow(acc, r) {
+  for (const k in BASE) { const v=r[k]; if (v==null) continue; const a=acc[k]; a.s+=v; a.cnt++; if(v<a.min)a.min=v; if(v>a.max)a.max=v; }
+}
+function value(acc, m, agg) {
+  if (DERIVED[m]) { const s={}; for(const k in BASE) s[k]=acc[k].cnt? acc[k].s : (k==="ofs"?0:0); 
+    if (m==="ofs_gap" && !acc.ofs.cnt) return null; return DERIVED[m].f(s); }
+  const a = acc[m]; if (!a.cnt) return null;
+  return agg==="sum"? a.s : agg==="avg"? a.s/a.cnt : agg==="min"? a.min : a.max;
+}
+const AGGN = {sum:"somme", avg:"moyenne des lignes sources (année × canton × type)", min:"minimum", max:"maximum"};
+function group(rows, dims) {
+  const map = new Map();
+  for (const r of rows) {
+    const key = dims.map(d=>r[d]).join("\u0001");
+    let g = map.get(key); if (!g) { g = {keys:dims.map(d=>r[d]), acc:newAcc()}; map.set(key,g); }
+    addRow(g.acc, r);
+  }
+  return [...map.values()];
+}
+const cmp = (a,b) => typeof a==="number"&&typeof b==="number" ? a-b : String(a).localeCompare(String(b),"fr");
+const natural = (d,a,b) => d==="c"||d==="r"||d==="t" ? order[d].indexOf(a)-order[d].indexOf(b) : cmp(a,b);
+
+// ---------------------------------------------------------------- sélecteurs
+const optList = o => Object.entries(o).map(([k,v])=>`<option value="${k}">${v}</option>`).join("");
+$("cMeasure").innerHTML = optList(MEAS); $("cMeasure").value = "n";
+$("cX").innerHTML = optList(DIMS); $("cX").value = "y";
+$("cS").innerHTML = `<option value="">(aucune)</option>` + optList(DIMS); $("cS").value = "t";
+$("gDims").innerHTML = Object.entries(DIMS).map(([k,v])=>`<label><input type="checkbox" data-g="d" value="${k}" ${k==="y"||k==="t"?"checked":""}> ${v}</label>`).join("");
+$("gMeas").innerHTML = Object.entries(MEAS).map(([k,v])=>`<label><input type="checkbox" data-g="m" value="${k}" ${["n","sre","vol"].includes(k)?"checked":""}> ${v}</label>`).join("");
+["cMeasure","cAgg","cX","cS","cType","cTop","cSort","gAgg"].forEach(id => $(id).addEventListener("change", render));
+document.addEventListener("change", e => { if (e.target.dataset.g) render(); });
+let sortState = {col:0, dir:1};
+
+// ---------------------------------------------------------------- rendu
+function render() {
+  const rows = filtered();
+  renderKpis(rows); renderChart(rows); renderDetail(rows);
+}
+
+function renderKpis(rows) {
+  const acc = newAcc(); rows.forEach(r=>addRow(acc,r));
+  const k = [
+    ["Bâtiments achevés (RegBL)", fmt(acc.n.s)],
+    ["Nouveaux bât. d'habitation (StatBL)", acc.ofs.cnt? fmt(acc.ofs.s):"–"],
+    ["Surface SRE renseignée (m²)", fmt(acc.sre.s)],
+    ["Volume (m³)", fmt(acc.vol.s)],
+    ["Part de bât. avec SRE", acc.n.s? fmt(100*acc.nsre.s/acc.n.s)+" %":"–"]];
+  $("kpis").innerHTML = k.map(([l,v])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join("");
+}
+
+function renderChart(rows) {
+  const m=$("cMeasure").value, agg=$("cAgg").value, xd=$("cX").value, sd=$("cS").value, type=$("cType").value;
+  const top=+$("cTop").value||0;
+  const dims = sd && sd!==xd ? [xd, sd] : [xd];
+  const g = group(rows, dims);
+  const data = new Map(); // serie -> Map(x -> v)
+  const xs = new Set();
+  for (const e of g) {
+    const x=e.keys[0], s = dims.length>1? e.keys[1] : MEAS[m];
+    const v = value(e.acc, m, agg);
+    xs.add(x); if(!data.has(s)) data.set(s,new Map()); data.get(s).set(x,v);
+  }
+  let series = [...data.keys()];
+  const tot = s => [...data.get(s).values()].reduce((a,b)=>a+(b||0),0);
+  if (dims.length>1) {
+    series.sort((a,b)=>tot(b)-tot(a));
+    if (top>0 && series.length>top) {
+      const keep = series.slice(0,top), rest = series.slice(top);
+      if (["sum"].includes(agg) && !DERIVED[m]) {
+        const other = new Map();
+        for (const s of rest) for (const [x,v] of data.get(s)) other.set(x,(other.get(x)||0)+(v||0));
+        data.set("Autres", other); keep.push("Autres");
+      }
+      series = keep;
+    }
+  }
+  let xl = [...xs].sort((a,b)=>natural(xd,a,b));
+  if ($("cSort").checked) {
+    const xt = x => series.reduce((a,s)=>a+(data.get(s).get(x)||0),0);
+    xl.sort((a,b)=>xt(b)-xt(a));
+  }
+  drawChart(xl, series, data, type);
+  // légende
+  $("legend").innerHTML = series.length>1 ? series.map((s,i)=>`<span><i style="background:${PALETTE[i%PALETTE.length]}"></i>${s}</span>`).join("") : "";
+  drawPivot(xl, series, data, xd, sd, m, agg);
+}
+
+function niceMax(v) { if (v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=5?5:10)*p; }
+
+function drawChart(xl, series, data, type) {
+  const W=Math.max(700, xl.length*(type==="line"?34:Math.max(14,series.length*10+14))+90), H=340, L=70,R=14,T=14,B=60;
+  const pw=W-L-R, ph=H-T-B;
+  if (!xl.length || !series.length) { $("chart").innerHTML = `<p class="hint">Aucune donnée pour cette sélection.</p>`; return; }
+  const val=(s,x)=>data.get(s).get(x);
+  let ymax=0, ymin=0;
+  if (type==="stack") for (const x of xl) ymax=Math.max(ymax, series.reduce((a,s)=>a+Math.max(0,val(s,x)||0),0));
+  else for (const s of series) for (const x of xl) { const v=val(s,x); if(v!=null){ymax=Math.max(ymax,v);ymin=Math.min(ymin,v);} }
+  ymax = niceMax(ymax); if (ymin<0) ymin=-niceMax(-ymin);
+  const Y=v=>T+ph*(1-(v-ymin)/(ymax-ymin||1));
+  const bw=pw/xl.length, X=i=>L+bw*(i+.5);
+  let o=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  for (let i=0;i<=5;i++){ const v=ymin+(ymax-ymin)*i/5, y=Y(v);
+    o+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#e5e7eb"/><text x="${L-6}" y="${y+4}" text-anchor="end">${fmt(v)}</text>`; }
+  const step=Math.ceil(xl.length/Math.floor(pw/48));
+  xl.forEach((x,i)=>{ if(i%step) return; o+=`<text transform="translate(${X(i)},${H-B+14}) rotate(${xl.length>12?-40:0})" text-anchor="${xl.length>12?"end":"middle"}">${x}</text>`; });
+  const col=i=>PALETTE[i%PALETTE.length];
+  if (type==="line") {
+    series.forEach((s,i)=>{
+      let pts=[], dots="";
+      xl.forEach((x,j)=>{ const v=val(s,x); if(v==null) return; pts.push(`${X(j)},${Y(v)}`);
+        dots+=`<circle cx="${X(j)}" cy="${Y(v)}" r="3" fill="${col(i)}"><title>${s} · ${x} : ${fmt(v)}</title></circle>`; });
+      o+=`<polyline fill="none" stroke="${col(i)}" stroke-width="2" points="${pts.join(" ")}"/>${dots}`; });
+  } else if (type==="bar") {
+    const gw=bw*.8/series.length;
+    series.forEach((s,i)=>xl.forEach((x,j)=>{ const v=val(s,x); if(v==null) return;
+      const x0=L+bw*j+bw*.1+gw*i, y0=Y(Math.max(v,0)), h=Math.abs(Y(v)-Y(0));
+      o+=`<rect x="${x0}" y="${y0}" width="${gw}" height="${h}" fill="${col(i)}"><title>${s} · ${x} : ${fmt(v)}</title></rect>`; }));
+  } else {
+    xl.forEach((x,j)=>{ let acc=0; series.forEach((s,i)=>{ const v=Math.max(0,val(s,x)||0); if(!v) return;
+      const y1=Y(acc+v), y0=Y(acc); acc+=v;
+      o+=`<rect x="${L+bw*j+bw*.12}" y="${y1}" width="${bw*.76}" height="${y0-y1}" fill="${col(i)}"><title>${s} · ${x} : ${fmt(v)}</title></rect>`; }); });
+  }
+  o+=`<line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="#888"/></svg>`;
+  $("chart").innerHTML=o;
+}
+
+function drawPivot(xl, series, data, xd, sd, m, agg) {
+  const multi = series.length>1 || (sd && sd!==xd);
+  const rowTot = x => series.reduce((a,s)=>a+(data.get(s).get(x)||0),0);
+  const canTotal = agg==="sum" && !DERIVED[m] && multi;
+  let h=`<thead><tr><th>${DIMS[xd]}</th>${series.map(s=>`<th class="num">${s}</th>`).join("")}${canTotal?`<th class="num">Total</th>`:""}</tr></thead><tbody>`;
+  for (const x of xl) h+=`<tr><td>${x}</td>${series.map(s=>`<td class="num">${fmt(data.get(s).get(x))}</td>`).join("")}${canTotal?`<td class="num"><b>${fmt(rowTot(x))}</b></td>`:""}</tr>`;
+  if (canTotal) { let gt=0; h+=`<tr class="total"><td>Total</td>${series.map(s=>{const t=xl.reduce((a,x)=>a+(data.get(s).get(x)||0),0); gt+=t; return `<td class="num">${fmt(t)}</td>`;}).join("")}<td class="num">${fmt(gt)}</td></tr>`; }
+  $("pivot").innerHTML=h+"</tbody>";
+  $("aggNote").textContent = DERIVED[m] ? "Mesure dérivée : calculée à partir des sommes de chaque groupe." : `Agrégation : ${AGGN[agg]}.`;
+  window._pivot = {xl, series, data, xd};
+}
+
+function renderDetail(rows) {
+  const dims=[...document.querySelectorAll("[data-g=d]:checked")].map(i=>i.value);
+  const meas=[...document.querySelectorAll("[data-g=m]:checked")].map(i=>i.value);
+  const agg=$("gAgg").value;
+  const g=group(rows, dims);
+  let lines=g.map(e=>({keys:e.keys, vals:meas.map(m=>value(e.acc,m,agg))}));
+  const nd=dims.length;
+  if (sortState.col>=nd+meas.length) sortState.col=0;
+  lines.sort((a,b)=>{ const c=sortState.col;
+    if (c<nd) { const r=natural(dims[c],a.keys[c],b.keys[c]); return r*sortState.dir; }
+    const x=a.vals[c-nd], y=b.vals[c-nd]; return ((x??-Infinity)-(y??-Infinity))*sortState.dir; });
+  const heads=[...dims.map(d=>DIMS[d]), ...meas.map(m=>MEAS[m])];
+  let h="<thead><tr>"+heads.map((t,i)=>`<th data-col="${i}" class="${i>=nd?"num":""}">${t}${sortState.col===i?(sortState.dir>0?" ▲":" ▼"):""}</th>`).join("")+"</tr></thead><tbody>";
+  for (const l of lines.slice(0,3000)) h+="<tr>"+l.keys.map(k=>`<td>${k}</td>`).join("")+l.vals.map(v=>`<td class="num">${fmt(v)}</td>`).join("")+"</tr>";
+  if (nd && meas.length) {
+    const acc=newAcc(); rows.forEach(r=>addRow(acc,r));
+    h+=`<tr class="total"><td colspan="${nd}">Total</td>`+meas.map(m=>`<td class="num">${fmt(value(acc,m,agg))}</td>`).join("")+"</tr>";
+  }
+  $("detail").innerHTML=h+"</tbody>";
+  $("detail").querySelectorAll("th").forEach(th=>th.onclick=()=>{ const c=+th.dataset.col; sortState = {col:c, dir: sortState.col===c? -sortState.dir : (c<nd?1:-1)}; renderDetail(rows); });
+  $("detNote").textContent=`${lines.length.toLocaleString("fr-CH")} groupes${lines.length>3000?" (3 000 premiers affichés)":""}. `+
+    (meas.some(m=>DERIVED[m])?"Les mesures dérivées sont calculées à partir des sommes. ":"")+`Agrégation : ${AGGN[agg]}.`;
+  window._detail={heads, lines, nd};
+}
+
+// ---------------------------------------------------------------- export CSV
+function download(name, rows) {
+  const esc=v=>{v=v==null?"":String(v); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const blob=new Blob(["\ufeff"+rows.map(r=>r.map(esc).join(";")).join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+}
+$("tbCsv").onclick=()=>{ const d=window._detail; download("tableau_detaille.csv",[d.heads,...d.lines.map(l=>[...l.keys,...l.vals])]); };
+$("pvCsv").onclick=()=>{ const p=window._pivot; download("tableau_croise.csv",[[DIMS[p.xd],...p.series],...p.xl.map(x=>[x,...p.series.map(s=>p.data.get(s).get(x))])]); };
+
+render();
+</script>
+</body>
+</html>
+

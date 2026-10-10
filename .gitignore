@@ -1,0 +1,21 @@
+data/*.zip
+
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# Fichiers compilés Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Variables d'environnement et secrets
+.env
+secrets.json
+
+# Fichiers générés par le système ou l'IDE
+.DS_Store
+.vscode/
+.idea/
